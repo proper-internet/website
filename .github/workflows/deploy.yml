@@ -1,0 +1,72 @@
+name: deploy
+
+on: workflow_dispatch
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  cloudflare:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Install Dependencies
+        run: |
+          sudo apt -y update
+          wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -P /tmp
+          sudo dpkg -i /tmp/google-chrome-stable_current_amd64.deb
+          sudo apt -y --no-install-recommends --fix-broken install
+      
+      - name: Notion Snapshot
+        id: snapshot
+        run: |
+          cd ..
+          eval $(ssh-agent -s)
+          ssh-add - <<< "${{ secrets.SNAPSHOT_DEPLOY_KEY }}"
+          git clone git@github.com:proper-internet/snapshot.git
+          cd snapshot
+          pip install -r requirements.txt
+          python notionsnapshot https://sneaky-cry-8e7.notion.site/Proper-Internet-1463b3f59a6a8049966dd1e89fc5f3c4
+          git clone https://github.com/proper-internet/bin.git ./snapshots/proper-internet/bin
+          rm -rf ./snapshots/proper-internet/bin/.git
+          cp -rp snapshots/proper-internet/* ../website/
+          PR_TITLE=$(date -u +"Notion Snapshot %Y-%m-%d %H:%M:%S")
+          PR_BRANCH=$(date -u +"snapshot/%Y-%m-%d-%H%M%S")
+          echo "PR_BRANCH=$PR_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "PR_TITLE=$PR_TITLE" >> "$GITHUB_OUTPUT"
+      
+      - name: Create Pull Request
+        id: pull_request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: ${{ steps.snapshot.outputs.PR_BRANCH }}
+          body: ${{ steps.snapshot.outputs.PR_TITLE }}
+          title: ${{ steps.snapshot.outputs.PR_TITLE }}
+          commit-message: ${{ steps.snapshot.outputs.PR_TITLE }}
+      
+      - name: Merge Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge ${{ steps.pull_request.outputs.pull-request-number }} --merge --delete-branch
+          git checkout main
+          git pull
+      
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command:
+            pages deploy . --project-name=${{ secrets.CLOUDFLARE_PROJECT_NAME }} --branch=main
+
+      - name: Purge Cache
+        uses: fishmanlabs/cloudflare-purge-cache-action@v1
+        with:
+          api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          zone_id: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          purge_everything: 'true'
