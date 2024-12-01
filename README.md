@@ -2,6 +2,8 @@
 
 This repo creates a snapshot of the <a href="https://sneaky-cry-8e7.notion.site/Proper-Internet-1463b3f59a6a8049966dd1e89fc5f3c4" target="_blank">Proper Internet</a> Notion public website and publishes it to CloudFlare Pages.
 
+<img src="https://github.com/user-attachments/assets/b0fe77d4-663c-42be-a61f-3101a8afaf74" width="320" />
+
 ## Dependencies
 ```
 brew install gh
