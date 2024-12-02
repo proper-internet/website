@@ -24,7 +24,7 @@ EDITOR="vim"
 EOF
 
 # prepare the openwrt build system
-git clone https://git.openwrt.org/openwrt/openwrt.git
+git clone https://github.com/openwrt/openwrt.git
 cd openwrt
 # checkout the same revision as you're using in your openwrt build
 git checkout $GIT_COMMIT
